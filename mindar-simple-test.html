@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MindAR 最簡測試</title>
+<style>
+  body { margin: 0; overflow: hidden; }
+  .hint {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-family: sans-serif;
+    font-size: 14px;
+    z-index: 100;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="hint">請對準識別圖（最簡測試：藍色立方體）</div>
+
+<script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+<a-scene
+  mindar-image="imageTargetSrc: ./targets.mind;"
+  vr-mode-ui="enabled: false"
+  device-orientation-permission-ui="enabled: false"
+>
+  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+  <a-entity mindar-image-target="targetIndex: 0">
+    <!-- 用藍色半透明立方體測試，不使用圖片 -->
+    <a-box
+      color="#06b6d4"
+      position="0 0.5 0"
+      scale="0.5 0.5 0.5"
+      material="opacity: 0.7;"
+    ></a-box>
+  </a-entity>
+</a-scene>
+
+</body>
+</html>

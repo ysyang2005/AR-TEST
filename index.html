@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timor Leste Kopi Luwak AR</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; }
+
+  /* 頂部標籤 */
+  .top-label {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(10px);
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.9);
+    font-family: -apple-system, sans-serif;
+    font-weight: 500;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  /* 掃描提示 */
+  .scan-hint {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #fff;
+    font-family: -apple-system, sans-serif;
+    z-index: 100;
+    pointer-events: none;
+    transition: opacity 0.5s;
+  }
+  .scan-hint.hidden { opacity: 0; }
+  .scan-hint .icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 16px;
+    border: 3px solid rgba(6,182,212,0.6);
+    border-radius: 12px;
+    position: relative;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .scan-hint .icon::before {
+    content: '';
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: #06b6d4;
+    box-shadow: 0 0 10px #06b6d4;
+    animation: scanLine 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.05); opacity: 1; }
+  }
+  @keyframes scanLine {
+    0%, 100% { top: 20%; }
+    50% { top: 80%; }
+  }
+  .scan-hint .text {
+    font-size: 16px;
+    font-weight: 600;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    margin-bottom: 6px;
+  }
+  .scan-hint .sub {
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  }
+</style>
+</head>
+<body>
+
+<div class="top-label">Timor Leste Kopi Luwak AR</div>
+
+<div class="scan-hint" id="scanHint">
+  <div class="icon"></div>
+  <div class="text">請將相機對準識別圖</div>
+  <div class="sub">Timor Leste Kopi Luwak 咖啡包裝</div>
+</div>
+
+<script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+<a-scene
+  mindar-image="imageTargetSrc: ./targets.mind;"
+  vr-mode-ui="enabled: false"
+  device-orientation-permission-ui="enabled: false"
+>
+  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+  <a-entity mindar-image-target="targetIndex: 0" smooth-tracking="positionLerp: 0.12; rotationLerp: 0.12;">
+
+    <!-- 對象1：Kivicube 真實座標轉換後 -->
+    <!-- position(-0.297, 0.5, 0.649), scale(0.5, 0.5, 0.5) -->
+    <a-image
+      src="./ar-content.png"
+      position="-0.297 0.5 0.649"
+      scale="0.5 0.5 0.5"
+      transparent="true"
+    ></a-image>
+
+    <!-- 對象2：第二個位置 -->
+    <!-- position(0.3, 0.35, -0.2), scale(0.6, 0.6, 0.6) -->
+    <a-image
+      src="./ar-content.png"
+      position="0.3 0.35 -0.2"
+      scale="0.6 0.6 0.6"
+      transparent="true"
+    ></a-image>
+
+  </a-entity>
+</a-scene>
+
+<script>
+  // ===== 位姿平滑組件：減少追蹤抖動 =====
+  AFRAME.registerComponent('smooth-tracking', {
+    schema: {
+      positionLerp: { type: 'number', default: 0.12 },
+      rotationLerp: { type: 'number', default: 0.12 }
+    },
+    init: function() {
+      this.smoothPosition = new THREE.Vector3();
+      this.smoothQuaternion = new THREE.Quaternion();
+      this.initialized = false;
+      this.targetFound = false;
+    },
+    tick: function() {
+      const obj = this.el.object3D;
+
+      // 如果還沒初始化，直接複製當前位姿
+      if (!this.initialized) {
+        if (obj.position.length() > 0 || obj.quaternion.w !== 1) {
+          this.smoothPosition.copy(obj.position);
+          this.smoothQuaternion.copy(obj.quaternion);
+          this.initialized = true;
+        }
+        return;
+      }
+
+      // 位置插值（lerp）
+      this.smoothPosition.lerp(obj.position, this.data.positionLerp);
+      obj.position.copy(this.smoothPosition);
+
+      // 旋轉插值（四元數 slerp）
+      this.smoothQuaternion.slerp(obj.quaternion, this.data.rotationLerp);
+      obj.quaternion.copy(this.smoothQuaternion);
+    }
+  });
+
+  // ===== 事件處理 =====
+  const sceneEl = document.querySelector('a-scene');
+  const scanHint = document.getElementById('scanHint');
+
+  sceneEl.addEventListener('targetFound', () => {
+    scanHint.classList.add('hidden');
+  });
+
+  sceneEl.addEventListener('targetLost', () => {
+    scanHint.classList.remove('hidden');
+  });
+</script>
+
+</body>
+</html>
