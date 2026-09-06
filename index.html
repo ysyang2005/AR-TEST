@@ -3,39 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>MindAR ROI Guide</title>
+<title>MindAR 放大+高密度 双目标</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
   #ar-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
   #ar-container canvas { display: block; }
 
-  /* 识别框引导 */
   #roi-guide {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 70vw; height: 70vh; max-width: 500px; max-height: 700px;
-    border: 3px dashed rgba(0, 255, 100, 0.7);
-    border-radius: 12px;
+    width: 72vw; height: 72vh; max-width: 520px; max-height: 720px;
+    border: 3px dashed rgba(0, 255, 100, 0.7); border-radius: 12px;
     pointer-events: none; z-index: 50;
     box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);
-    transition: border-color 0.3s, box-shadow 0.3s;
+    transition: all 0.3s;
   }
-  #roi-guide.found {
-    border-color: rgba(0, 255, 100, 1);
-    border-style: solid;
-    box-shadow: 0 0 30px rgba(0,255,100,0.5), 0 0 0 9999px rgba(0,0,0,0.2);
-  }
-  #roi-guide::before, #roi-guide::after {
-    content: ''; position: absolute; width: 30px; height: 30px;
-    border: 4px solid #0f0;
-  }
-  #roi-guide::before { top: -4px; left: -4px; border-right: none; border-bottom: none; }
-  #roi-guide::after { bottom: -4px; right: -4px; border-left: none; border-top: none; }
+  #roi-guide.found { border-style: solid; box-shadow: 0 0 30px rgba(0,255,100,0.5), 0 0 0 9999px rgba(0,0,0,0.15); }
+  #roi-guide.t0 { border-color: rgba(255, 215, 0, 0.9); }
+  #roi-guide.t1 { border-color: rgba(0, 255, 255, 0.9); }
 
   #hint {
-    position: fixed; top: calc(50% - 35vh - 50px); left: 50%; transform: translateX(-50%);
+    position: fixed; top: calc(50% - 36vh - 52px); left: 50%; transform: translateX(-50%);
     color: #0f0; font: 14px/1.4 sans-serif; z-index: 51;
-    text-shadow: 0 0 8px rgba(0,0,0,0.8); white-space: nowrap;
+    text-shadow: 0 0 8px rgba(0,0,0,0.8); white-space: nowrap; text-align: center;
   }
 
   #status {
@@ -43,13 +33,13 @@
     padding: 12px 16px; color: #fff; font: 14px/1.4 monospace;
     background: rgba(0,0,0,0.6); text-align: center;
   }
-  #status.found { background: rgba(0,128,0,0.7); }
+  #status.found { background: rgba(0,128,0,0.75); }
   #status.lost { background: rgba(128,0,0,0.7); }
 
   #debug {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
     padding: 8px 12px; color: #0f0; font: 11px/1.5 monospace;
-    background: rgba(0,0,0,0.75); max-height: 25vh; overflow-y: auto;
+    background: rgba(0,0,0,0.75); max-height: 22vh; overflow-y: auto;
   }
 </style>
 <script type="importmap">
@@ -63,7 +53,7 @@
 </head>
 <body>
 <div id="ar-container"></div>
-<div id="hint">将甲骨文放入框内</div>
+<div id="hint">将甲骨文放入框内<br><span style="font-size:12px;opacity:0.7">对准整体=金色 / 凑近刻辞区=青色</span></div>
 <div id="roi-guide"></div>
 <div id="status">正在加载...</div>
 <div id="debug"></div>
@@ -76,7 +66,6 @@ const container = document.getElementById('ar-container');
 const statusEl = document.getElementById('status');
 const debugEl = document.getElementById('debug');
 const roiGuide = document.getElementById('roi-guide');
-let frameCount = 0;
 
 function log(msg) {
   const line = document.createElement('div');
@@ -90,16 +79,16 @@ function setStatus(text, cls) {
   statusEl.className = cls || '';
 }
 
-function createARContent() {
+function createARContent(cubeColor) {
   const group = new THREE.Group();
   const plane = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1),
-    new THREE.MeshBasicMaterial({ color: 0x0066ff, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+    new THREE.MeshBasicMaterial({ color: 0x0066ff, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
   );
   group.add(plane);
   const cube = new THREE.Mesh(
     new THREE.BoxGeometry(0.3, 0.3, 0.3),
-    new THREE.MeshBasicMaterial({ color: 0xffd700 })
+    new THREE.MeshBasicMaterial({ color: cubeColor })
   );
   cube.position.set(0, 0, 0.2);
   group.add(cube);
@@ -115,35 +104,55 @@ function createARContent() {
 async function start() {
   const mindarThree = new MindARThree({
     container: container,
-    imageTargetSrc: './targets_improved.mind',
+    imageTargetSrc: './targets_zoom_dense.mind',
     uiLoading: 'no', uiScanning: 'no', uiError: 'no'
   });
 
   const { renderer, scene, camera } = mindarThree;
-  const anchor = mindarThree.addAnchor(0);
-  const content = createARContent();
-  anchor.group.add(content.group);
 
-  anchor.onTargetFound = () => {
-    setStatus('识别成功！', 'found');
-    roiGuide.classList.add('found');
-    log('TARGET FOUND');
+  // Target 0: 物体放大版（整体识别）→ 金色
+  const anchor0 = mindarThree.addAnchor(0);
+  const content0 = createARContent(0xffd700);
+  anchor0.group.add(content0.group);
+
+  // Target 1: 高密度刻辞区（局部识别）→ 青色
+  const anchor1 = mindarThree.addAnchor(1);
+  const content1 = createARContent(0x00ffff);
+  anchor1.group.add(content1.group);
+
+  anchor0.onTargetFound = () => {
+    setStatus('识别成功！整体版（金色）', 'found');
+    roiGuide.classList.add('found', 't0');
+    roiGuide.classList.remove('t1');
+    log('TARGET 0 FOUND (整体放大版)');
   };
-  anchor.onTargetLost = () => {
-    setStatus('目标丢失，将物体放入框内', 'lost');
-    roiGuide.classList.remove('found');
-    log('TARGET LOST');
+  anchor0.onTargetLost = () => {
+    setStatus('目标丢失', 'lost');
+    roiGuide.classList.remove('found', 't0');
+    log('TARGET 0 LOST');
+  };
+  anchor1.onTargetFound = () => {
+    setStatus('识别成功！高密度刻辞区（青色）', 'found');
+    roiGuide.classList.add('found', 't1');
+    roiGuide.classList.remove('t0');
+    log('TARGET 1 FOUND (高密度区域版)');
+  };
+  anchor1.onTargetLost = () => {
+    setStatus('目标丢失', 'lost');
+    roiGuide.classList.remove('found', 't1');
+    log('TARGET 1 LOST');
   };
 
   log(`container: ${container.clientWidth}x${container.clientHeight}`);
   await mindarThree.start();
   setStatus('扫描中... 将甲骨文放入绿色框内');
-  log('MindAR started');
+  log('MindAR started (2 targets)');
 
   renderer.setAnimationLoop(() => {
-    frameCount++;
-    content.cube.rotation.x += 0.01; content.cube.rotation.y += 0.01;
-    content.ring.rotation.z += 0.005;
+    content0.cube.rotation.x += 0.01; content0.cube.rotation.y += 0.01;
+    content0.ring.rotation.z += 0.005;
+    content1.cube.rotation.x += 0.01; content1.cube.rotation.y += 0.01;
+    content1.ring.rotation.z += 0.005;
     renderer.render(scene, camera);
   });
 }
