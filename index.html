@@ -1,175 +1,154 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Timor Leste Kopi Luwak AR</title>
-<style>
-  body { margin: 0; overflow: hidden; background: #000; }
-
-  /* 頂部標籤 */
-  .top-label {
-    position: fixed;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(10px);
-    padding: 8px 20px;
-    border-radius: 20px;
-    font-size: 13px;
-    color: rgba(255,255,255,0.9);
-    font-family: -apple-system, sans-serif;
-    font-weight: 500;
-    z-index: 100;
-    pointer-events: none;
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>MindAR 极简测试 v3</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #000;
+      font-family: -apple-system, sans-serif;
+    }
+    #ar-container {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #status {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+      padding: 12px 16px; color: #fff; font-size: 14px; font-weight: 600;
+      background: rgba(0,0,139,0.85); text-align: center;
+    }
+    #status.found { background: rgba(34,139,34,0.9); }
+    #debug {
+      position: fixed; bottom: 10px; left: 10px; z-index: 9999;
+      color: #0f0; font-size: 10px; font-family: monospace;
+      background: rgba(0,0,0,0.8); padding: 8px; border-radius: 4px;
+      max-width: 90vw; line-height: 1.4;
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
   }
-
-  /* 掃描提示 */
-  .scan-hint {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    color: #fff;
-    font-family: -apple-system, sans-serif;
-    z-index: 100;
-    pointer-events: none;
-    transition: opacity 0.5s;
-  }
-  .scan-hint.hidden { opacity: 0; }
-  .scan-hint .icon {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 16px;
-    border: 3px solid rgba(6,182,212,0.6);
-    border-radius: 12px;
-    position: relative;
-    animation: pulse 2s ease-in-out infinite;
-  }
-  .scan-hint .icon::before {
-    content: '';
-    position: absolute;
-    left: 10%;
-    right: 10%;
-    height: 2px;
-    background: #06b6d4;
-    box-shadow: 0 0 10px #06b6d4;
-    animation: scanLine 2s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { transform: scale(1); opacity: 0.8; }
-    50% { transform: scale(1.05); opacity: 1; }
-  }
-  @keyframes scanLine {
-    0%, 100% { top: 20%; }
-    50% { top: 80%; }
-  }
-  .scan-hint .text {
-    font-size: 16px;
-    font-weight: 600;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-    margin-bottom: 6px;
-  }
-  .scan-hint .sub {
-    font-size: 13px;
-    color: rgba(255,255,255,0.7);
-    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-  }
-</style>
+  </script>
 </head>
 <body>
+  <div id="ar-container"></div>
+  <div id="status">v3 初始化中...</div>
+  <div id="debug"></div>
 
-<div class="top-label">Timor Leste Kopi Luwak AR</div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
 
-<div class="scan-hint" id="scanHint">
-  <div class="icon"></div>
-  <div class="text">請將相機對準識別圖</div>
-  <div class="sub">Timor Leste Kopi Luwak 咖啡包裝</div>
-</div>
-
-<script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
-<a-scene
-  mindar-image="imageTargetSrc: ./targets.mind;"
-  vr-mode-ui="enabled: false"
-  device-orientation-permission-ui="enabled: false"
->
-  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-  <a-entity mindar-image-target="targetIndex: 0" smooth-tracking="positionLerp: 0.12; rotationLerp: 0.12;">
-
-    <!-- 對象1：Kivicube 真實座標轉換後 -->
-    <!-- position(-0.297, 0.5, 0.649), scale(0.5, 0.5, 0.5) -->
-    <a-image
-      src="./ar-content.png"
-      position="-0.297 0.5 0.649"
-      scale="0.5 0.5 0.5"
-      transparent="true"
-    ></a-image>
-
-    <!-- 對象2：第二個位置 -->
-    <!-- position(0.3, 0.35, -0.2), scale(0.6, 0.6, 0.6) -->
-    <a-image
-      src="./ar-content.png"
-      position="0.3 0.35 -0.2"
-      scale="0.6 0.6 0.6"
-      transparent="true"
-    ></a-image>
-
-  </a-entity>
-</a-scene>
-
-<script>
-  // ===== 位姿平滑組件：減少追蹤抖動 =====
-  AFRAME.registerComponent('smooth-tracking', {
-    schema: {
-      positionLerp: { type: 'number', default: 0.12 },
-      rotationLerp: { type: 'number', default: 0.12 }
-    },
-    init: function() {
-      this.smoothPosition = new THREE.Vector3();
-      this.smoothQuaternion = new THREE.Quaternion();
-      this.initialized = false;
-      this.targetFound = false;
-    },
-    tick: function() {
-      const obj = this.el.object3D;
-
-      // 如果還沒初始化，直接複製當前位姿
-      if (!this.initialized) {
-        if (obj.position.length() > 0 || obj.quaternion.w !== 1) {
-          this.smoothPosition.copy(obj.position);
-          this.smoothQuaternion.copy(obj.quaternion);
-          this.initialized = true;
-        }
-        return;
-      }
-
-      // 位置插值（lerp）
-      this.smoothPosition.lerp(obj.position, this.data.positionLerp);
-      obj.position.copy(this.smoothPosition);
-
-      // 旋轉插值（四元數 slerp）
-      this.smoothQuaternion.slerp(obj.quaternion, this.data.rotationLerp);
-      obj.quaternion.copy(this.smoothQuaternion);
+    const statusEl = document.getElementById('status');
+    const debugEl = document.getElementById('debug');
+    const container = document.getElementById('ar-container');
+    let logs = [];
+    function log(msg) {
+      logs.push(msg);
+      if (logs.length > 15) logs.shift();
+      debugEl.textContent = logs.join('\n');
+      console.log('[AR]', msg);
     }
-  });
 
-  // ===== 事件處理 =====
-  const sceneEl = document.querySelector('a-scene');
-  const scanHint = document.getElementById('scanHint');
+    log('v3 - page loaded');
+    log('container size: ' + container.clientWidth + 'x' + container.clientHeight);
 
-  sceneEl.addEventListener('targetFound', () => {
-    scanHint.classList.add('hidden');
-  });
+    try {
+      const mindarThree = new MindARThree({
+        container: container,
+        imageTargetSrc: './targets_improved.mind',
+        uiLoading: 'no',
+        uiScanning: 'no',
+        uiError: 'no',
+      });
+      log('MindARThree created');
 
-  sceneEl.addEventListener('targetLost', () => {
-    scanHint.classList.remove('hidden');
-  });
-</script>
+      const { renderer, scene, camera } = mindarThree;
+      log('renderer size: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
+      log('scene children: ' + scene.children.length);
 
+      // Light
+      scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+      scene.add(new THREE.DirectionalLight(0xffffff, 0.8));
+
+      // Anchor
+      const anchor = mindarThree.addAnchor(0);
+      log('anchor created, group.visible=' + anchor.group.visible);
+
+      // BIG RED CUBE - impossible to miss
+      const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 0.5, 0.5),
+        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+      );
+      cube.position.z = 0.3;
+      anchor.group.add(cube);
+      log('red cube added to anchor.group');
+      log('anchor.group.children: ' + anchor.group.children.length);
+
+      // Blue plane on target
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1.5),
+        new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+      );
+      plane.position.z = 0.01;
+      anchor.group.add(plane);
+      log('blue plane added');
+
+      anchor.onTargetFound = () => {
+        statusEl.textContent = '✓ 识别成功！';
+        statusEl.className = 'found';
+        log('>>> TARGET FOUND <<<');
+        log('group.visible=' + anchor.group.visible);
+        log('group.matrix=' + JSON.stringify(Array.from(anchor.group.matrix.elements)).substring(0, 80));
+        log('cube.visible=' + cube.visible + ' cube.position=' + cube.position.x.toFixed(2) + ',' + cube.position.y.toFixed(2) + ',' + cube.position.z.toFixed(2));
+        log('renderer.domElement size: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
+        log('container size: ' + container.clientWidth + 'x' + container.clientHeight);
+      };
+      anchor.onTargetLost = () => {
+        statusEl.textContent = '目标丢失';
+        statusEl.className = '';
+        log('TARGET LOST');
+      };
+
+      statusEl.textContent = '启动摄像头...';
+      await mindarThree.start();
+      log('AR started');
+      log('renderer size after start: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
+      log('camera fov: ' + camera.fov.toFixed(1) + ' aspect: ' + camera.aspect.toFixed(2));
+      statusEl.textContent = '就绪！对准甲骨文';
+
+      // Render loop
+      let frameCount = 0;
+      renderer.setAnimationLoop(() => {
+        frameCount++;
+        cube.rotation.y += 0.02;
+        renderer.render(scene, camera);
+        if (frameCount % 120 === 0) {
+          log('render frame ' + frameCount + ', scene children: ' + scene.children.length);
+        }
+      });
+      log('render loop started');
+
+    } catch (err) {
+      log('FATAL: ' + err.message);
+      log(err.stack ? err.stack.substring(0, 200) : '');
+      statusEl.textContent = '错误: ' + err.message;
+      statusEl.style.background = 'rgba(139,0,0,0.9)';
+      console.error(err);
+    }
+  </script>
 </body>
 </html>
