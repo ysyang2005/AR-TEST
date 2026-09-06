@@ -1,154 +1,157 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <title>MindAR 极简测试 v3</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      background: #000;
-      font-family: -apple-system, sans-serif;
-    }
-    #ar-container {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-    }
-    #status {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-      padding: 12px 16px; color: #fff; font-size: 14px; font-weight: 600;
-      background: rgba(0,0,139,0.85); text-align: center;
-    }
-    #status.found { background: rgba(34,139,34,0.9); }
-    #debug {
-      position: fixed; bottom: 10px; left: 10px; z-index: 9999;
-      color: #0f0; font-size: 10px; font-family: monospace;
-      background: rgba(0,0,0,0.8); padding: 8px; border-radius: 4px;
-      max-width: 90vw; line-height: 1.4;
-    }
-  </style>
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>MindAR ROI Guide</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  #ar-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
+  #ar-container canvas { display: block; }
+
+  /* 识别框引导 */
+  #roi-guide {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 70vw; height: 70vh; max-width: 500px; max-height: 700px;
+    border: 3px dashed rgba(0, 255, 100, 0.7);
+    border-radius: 12px;
+    pointer-events: none; z-index: 50;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);
+    transition: border-color 0.3s, box-shadow 0.3s;
   }
-  </script>
+  #roi-guide.found {
+    border-color: rgba(0, 255, 100, 1);
+    border-style: solid;
+    box-shadow: 0 0 30px rgba(0,255,100,0.5), 0 0 0 9999px rgba(0,0,0,0.2);
+  }
+  #roi-guide::before, #roi-guide::after {
+    content: ''; position: absolute; width: 30px; height: 30px;
+    border: 4px solid #0f0;
+  }
+  #roi-guide::before { top: -4px; left: -4px; border-right: none; border-bottom: none; }
+  #roi-guide::after { bottom: -4px; right: -4px; border-left: none; border-top: none; }
+
+  #hint {
+    position: fixed; top: calc(50% - 35vh - 50px); left: 50%; transform: translateX(-50%);
+    color: #0f0; font: 14px/1.4 sans-serif; z-index: 51;
+    text-shadow: 0 0 8px rgba(0,0,0,0.8); white-space: nowrap;
+  }
+
+  #status {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 12px 16px; color: #fff; font: 14px/1.4 monospace;
+    background: rgba(0,0,0,0.6); text-align: center;
+  }
+  #status.found { background: rgba(0,128,0,0.7); }
+  #status.lost { background: rgba(128,0,0,0.7); }
+
+  #debug {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    padding: 8px 12px; color: #0f0; font: 11px/1.5 monospace;
+    background: rgba(0,0,0,0.75); max-height: 25vh; overflow-y: auto;
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
 </head>
 <body>
-  <div id="ar-container"></div>
-  <div id="status">v3 初始化中...</div>
-  <div id="debug"></div>
+<div id="ar-container"></div>
+<div id="hint">将甲骨文放入框内</div>
+<div id="roi-guide"></div>
+<div id="status">正在加载...</div>
+<div id="debug"></div>
 
-  <script type="module">
-    import * as THREE from 'three';
-    import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
+<script type="module">
+import * as THREE from 'three';
+import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
 
-    const statusEl = document.getElementById('status');
-    const debugEl = document.getElementById('debug');
-    const container = document.getElementById('ar-container');
-    let logs = [];
-    function log(msg) {
-      logs.push(msg);
-      if (logs.length > 15) logs.shift();
-      debugEl.textContent = logs.join('\n');
-      console.log('[AR]', msg);
-    }
+const container = document.getElementById('ar-container');
+const statusEl = document.getElementById('status');
+const debugEl = document.getElementById('debug');
+const roiGuide = document.getElementById('roi-guide');
+let frameCount = 0;
 
-    log('v3 - page loaded');
-    log('container size: ' + container.clientWidth + 'x' + container.clientHeight);
+function log(msg) {
+  const line = document.createElement('div');
+  line.textContent = msg;
+  debugEl.appendChild(line);
+  while (debugEl.children.length > 15) debugEl.removeChild(debugEl.firstChild);
+}
 
-    try {
-      const mindarThree = new MindARThree({
-        container: container,
-        imageTargetSrc: './targets_improved.mind',
-        uiLoading: 'no',
-        uiScanning: 'no',
-        uiError: 'no',
-      });
-      log('MindARThree created');
+function setStatus(text, cls) {
+  statusEl.textContent = text;
+  statusEl.className = cls || '';
+}
 
-      const { renderer, scene, camera } = mindarThree;
-      log('renderer size: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
-      log('scene children: ' + scene.children.length);
+function createARContent() {
+  const group = new THREE.Group();
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ color: 0x0066ff, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+  );
+  group.add(plane);
+  const cube = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, 0.3, 0.3),
+    new THREE.MeshBasicMaterial({ color: 0xffd700 })
+  );
+  cube.position.set(0, 0, 0.2);
+  group.add(cube);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.35, 0.03, 16, 64),
+    new THREE.MeshBasicMaterial({ color: 0xff69b4 })
+  );
+  ring.position.set(0, 0, 0.2);
+  group.add(ring);
+  return { group, cube, ring };
+}
 
-      // Light
-      scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-      scene.add(new THREE.DirectionalLight(0xffffff, 0.8));
+async function start() {
+  const mindarThree = new MindARThree({
+    container: container,
+    imageTargetSrc: './targets_improved.mind',
+    uiLoading: 'no', uiScanning: 'no', uiError: 'no'
+  });
 
-      // Anchor
-      const anchor = mindarThree.addAnchor(0);
-      log('anchor created, group.visible=' + anchor.group.visible);
+  const { renderer, scene, camera } = mindarThree;
+  const anchor = mindarThree.addAnchor(0);
+  const content = createARContent();
+  anchor.group.add(content.group);
 
-      // BIG RED CUBE - impossible to miss
-      const cube = new THREE.Mesh(
-        new THREE.BoxGeometry(0.5, 0.5, 0.5),
-        new THREE.MeshBasicMaterial({ color: 0xff0000 })
-      );
-      cube.position.z = 0.3;
-      anchor.group.add(cube);
-      log('red cube added to anchor.group');
-      log('anchor.group.children: ' + anchor.group.children.length);
+  anchor.onTargetFound = () => {
+    setStatus('识别成功！', 'found');
+    roiGuide.classList.add('found');
+    log('TARGET FOUND');
+  };
+  anchor.onTargetLost = () => {
+    setStatus('目标丢失，将物体放入框内', 'lost');
+    roiGuide.classList.remove('found');
+    log('TARGET LOST');
+  };
 
-      // Blue plane on target
-      const plane = new THREE.Mesh(
-        new THREE.PlaneGeometry(1, 1.5),
-        new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
-      );
-      plane.position.z = 0.01;
-      anchor.group.add(plane);
-      log('blue plane added');
+  log(`container: ${container.clientWidth}x${container.clientHeight}`);
+  await mindarThree.start();
+  setStatus('扫描中... 将甲骨文放入绿色框内');
+  log('MindAR started');
 
-      anchor.onTargetFound = () => {
-        statusEl.textContent = '✓ 识别成功！';
-        statusEl.className = 'found';
-        log('>>> TARGET FOUND <<<');
-        log('group.visible=' + anchor.group.visible);
-        log('group.matrix=' + JSON.stringify(Array.from(anchor.group.matrix.elements)).substring(0, 80));
-        log('cube.visible=' + cube.visible + ' cube.position=' + cube.position.x.toFixed(2) + ',' + cube.position.y.toFixed(2) + ',' + cube.position.z.toFixed(2));
-        log('renderer.domElement size: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
-        log('container size: ' + container.clientWidth + 'x' + container.clientHeight);
-      };
-      anchor.onTargetLost = () => {
-        statusEl.textContent = '目标丢失';
-        statusEl.className = '';
-        log('TARGET LOST');
-      };
+  renderer.setAnimationLoop(() => {
+    frameCount++;
+    content.cube.rotation.x += 0.01; content.cube.rotation.y += 0.01;
+    content.ring.rotation.z += 0.005;
+    renderer.render(scene, camera);
+  });
+}
 
-      statusEl.textContent = '启动摄像头...';
-      await mindarThree.start();
-      log('AR started');
-      log('renderer size after start: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
-      log('camera fov: ' + camera.fov.toFixed(1) + ' aspect: ' + camera.aspect.toFixed(2));
-      statusEl.textContent = '就绪！对准甲骨文';
-
-      // Render loop
-      let frameCount = 0;
-      renderer.setAnimationLoop(() => {
-        frameCount++;
-        cube.rotation.y += 0.02;
-        renderer.render(scene, camera);
-        if (frameCount % 120 === 0) {
-          log('render frame ' + frameCount + ', scene children: ' + scene.children.length);
-        }
-      });
-      log('render loop started');
-
-    } catch (err) {
-      log('FATAL: ' + err.message);
-      log(err.stack ? err.stack.substring(0, 200) : '');
-      statusEl.textContent = '错误: ' + err.message;
-      statusEl.style.background = 'rgba(139,0,0,0.9)';
-      console.error(err);
-    }
-  </script>
+start().catch(e => {
+  setStatus('错误: ' + e.message, 'lost');
+  log('ERROR: ' + e.message);
+});
+</script>
 </body>
 </html>
