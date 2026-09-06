@@ -3,23 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <title>MindAR 极简测试 v3</title>
+  <title>MindAR 识别测试</title>
   <style>
     html, body {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      background: #000;
+      margin: 0; padding: 0;
+      width: 100vw; height: 100vh;
+      overflow: hidden; background: #000;
       font-family: -apple-system, sans-serif;
     }
     #ar-container {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh; overflow: hidden;
     }
     #status {
       position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
@@ -27,6 +21,7 @@
       background: rgba(0,0,139,0.85); text-align: center;
     }
     #status.found { background: rgba(34,139,34,0.9); }
+    #status.error { background: rgba(139,0,0,0.9); }
     #debug {
       position: fixed; bottom: 10px; left: 10px; z-index: 9999;
       color: #0f0; font-size: 10px; font-family: monospace;
@@ -45,12 +40,14 @@
 </head>
 <body>
   <div id="ar-container"></div>
-  <div id="status">v3 初始化中...</div>
+  <div id="status">初始化中...</div>
   <div id="debug"></div>
 
   <script type="module">
     import * as THREE from 'three';
     import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
+
+    const TARGET_SRC = './targets.mind';  // 替换为你的 .mind 文件路径
 
     const statusEl = document.getElementById('status');
     const debugEl = document.getElementById('debug');
@@ -63,59 +60,40 @@
       console.log('[AR]', msg);
     }
 
-    log('v3 - page loaded');
-    log('container size: ' + container.clientWidth + 'x' + container.clientHeight);
-
     try {
       const mindarThree = new MindARThree({
         container: container,
-        imageTargetSrc: './targets_improved.mind',
-        uiLoading: 'no',
-        uiScanning: 'no',
-        uiError: 'no',
+        imageTargetSrc: TARGET_SRC,
+        uiLoading: 'no', uiScanning: 'no', uiError: 'no',
       });
       log('MindARThree created');
 
       const { renderer, scene, camera } = mindarThree;
-      log('renderer size: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
-      log('scene children: ' + scene.children.length);
 
-      // Light
       scene.add(new THREE.AmbientLight(0xffffff, 1.0));
       scene.add(new THREE.DirectionalLight(0xffffff, 0.8));
 
-      // Anchor
       const anchor = mindarThree.addAnchor(0);
-      log('anchor created, group.visible=' + anchor.group.visible);
 
-      // BIG RED CUBE - impossible to miss
+      // AR 内容：红色立方体 + 青色半透明面（可自行替换为你的3D模型）
       const cube = new THREE.Mesh(
         new THREE.BoxGeometry(0.5, 0.5, 0.5),
         new THREE.MeshBasicMaterial({ color: 0xff0000 })
       );
       cube.position.z = 0.3;
       anchor.group.add(cube);
-      log('red cube added to anchor.group');
-      log('anchor.group.children: ' + anchor.group.children.length);
 
-      // Blue plane on target
       const plane = new THREE.Mesh(
         new THREE.PlaneGeometry(1, 1.5),
         new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
       );
       plane.position.z = 0.01;
       anchor.group.add(plane);
-      log('blue plane added');
 
       anchor.onTargetFound = () => {
         statusEl.textContent = '✓ 识别成功！';
         statusEl.className = 'found';
         log('>>> TARGET FOUND <<<');
-        log('group.visible=' + anchor.group.visible);
-        log('group.matrix=' + JSON.stringify(Array.from(anchor.group.matrix.elements)).substring(0, 80));
-        log('cube.visible=' + cube.visible + ' cube.position=' + cube.position.x.toFixed(2) + ',' + cube.position.y.toFixed(2) + ',' + cube.position.z.toFixed(2));
-        log('renderer.domElement size: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
-        log('container size: ' + container.clientWidth + 'x' + container.clientHeight);
       };
       anchor.onTargetLost = () => {
         statusEl.textContent = '目标丢失';
@@ -125,28 +103,17 @@
 
       statusEl.textContent = '启动摄像头...';
       await mindarThree.start();
-      log('AR started');
-      log('renderer size after start: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
-      log('camera fov: ' + camera.fov.toFixed(1) + ' aspect: ' + camera.aspect.toFixed(2));
-      statusEl.textContent = '就绪！对准甲骨文';
+      log('AR started, renderer: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
+      statusEl.textContent = '就绪！对准目标';
 
-      // Render loop
-      let frameCount = 0;
       renderer.setAnimationLoop(() => {
-        frameCount++;
         cube.rotation.y += 0.02;
         renderer.render(scene, camera);
-        if (frameCount % 120 === 0) {
-          log('render frame ' + frameCount + ', scene children: ' + scene.children.length);
-        }
       });
-      log('render loop started');
-
     } catch (err) {
       log('FATAL: ' + err.message);
-      log(err.stack ? err.stack.substring(0, 200) : '');
       statusEl.textContent = '错误: ' + err.message;
-      statusEl.style.background = 'rgba(139,0,0,0.9)';
+      statusEl.className = 'error';
       console.error(err);
     }
   </script>
